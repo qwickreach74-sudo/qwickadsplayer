@@ -1,0 +1,39 @@
+{
+  "summary": "Iteration 2 (QwickAds Super Admin Web Panel) tested end-to-end. Backend: 36/36 pytest tests pass (16 legacy player + 20 new admin) covering JWT login, /auth/me, machine-token access, unauth 401s, Areas/Cabs/Media/Campaigns CRUD (incl. unique constraints and 409 in-use blocks), registration-code lifecycle (single-use 409, revoke 410, cab->area hydration, expires_at), screen unregister invalidates screen_token, playlist publish + player fetch + version bump + 404 on unknown media, media delete blocked when in playlist, analytics/overview totals + online/offline/never_connected + impression >=80%, settings GET/PUT + audit trail, change-password rotates password_version invalidating old JWT, and the full integration flow (create area -> cab -> reg code -> register -> publish playlist -> heartbeat -> send SYNC_PLAYLIST command -> ack). Frontend: /admin/login authenticates with seed creds and lands on Dashboard (admin-page-title='Dashboard'); all 10 sidebar testIDs (nav-dashboard/screens/cabs/areas/media/campaigns/playlists/analytics/audit/settings) navigate correctly; add-area-btn/area-name/area-city/area-save creates an area visible in the list; add-cab-btn/cab-number/cab-save present; add-media-btn/media-title/media-url/media-save present; add-campaign-btn/campaign-save present; generate-reg-code-btn -> reg-code-generate produced a REG-XXXXXX code visible in reg-code-value; analytics range-today/range-7d/range-30d present and 30d click succeeds; publish-playlist present on playlists page; settings pwd-current/pwd-new/pwd-confirm/pwd-submit present; admin-logout clears session and redirects back to /admin/login. No React Native red screens, no deprecated packages detected in admin surface.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "cabs.tsx Field component", "issue": "Driver Name / Driver Mobile inputs in the cab sheet do not expose testIDs (cab-driver-name / cab-driver-mobile). Not in the review checklist but recommended for future e2e coverage. Reference: /app/frontend/app/admin/cabs.tsx:191-192", "testID": "cab-driver-name", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_admin.py",
+    "/app/backend/tests/test_qwickads.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional/LOW) Add testID='cab-driver-name' and testID='cab-driver-mobile' to the Driver Name/Mobile Field inputs in /app/frontend/app/admin/cabs.tsx so future e2e can assert those inputs."
+  ],
+  "critical_code_review_comments": [
+    "auth.py correctly uses bcrypt + pwdv rotation; JWT includes iss/aud/exp/pwdv — matches auth playbook expectations.",
+    "admin_routes.clean() strips both _id and screen_token before returning any doc to the admin, preventing token leak.",
+    "cabs_create returns the doc via a slightly convoluted `dict(doc, _id=None) and {k:v...}` construction (admin_routes.py:288). Works but is fragile — recommend replacing with the same pattern used elsewhere (fetch back with projection {'_id':0}).",
+    "settings PUT with empty body short-circuits and does not write an audit record (admin_routes.py:167-173) — intentional, but worth documenting.",
+    "reg-code expiry parse silently swallows non-HTTPException in server.py:274 — acceptable but could log a warning."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_admin.py (new)"
+  ],
+  "success_rate": {"backend": "100% (36/36)", "frontend": "100% of review-checklist testIDs/flows verified"},
+  "seed_data_creation": "Test suite creates ephemeral TEST_/UI_ prefixed areas/cabs/media/campaigns/screens; module-scoped fixtures best-effort delete cabs+areas after tests. One UI-created area (UI_AREA_<ns>) persists in the DB from the browser test — cleanup left to admin. change_password test rotates the seed admin password back to ChangeMe@2026 (verified).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend BASE_URL comes from EXPO_PUBLIC_BACKEND_URL. All admin endpoints accept either 'Authorization: Bearer <jwt>' (from POST /api/auth/login with admin@qwickads.com / ChangeMe@2026) or 'X-Admin-Token: qwickads-super-admin-dev-token'. Player endpoints continue to use 'X-Screen-Token'. Change-password rotates password_version and invalidates previously-issued JWTs — if you use a module-scoped token fixture, ensure the change-password test either runs last or the fixture is refreshed (see test_full_integration_flow which grabs a fresh token). Frontend admin lives at /admin/* on the web preview only; native short-circuits. Sidebar uses router.replace so subsequent navigation clicks work with force=True.",
+  "rca_of_issue": "N/A - no unresolved issues. The one intermittent failure encountered during initial run (test_full_integration_flow returning 401) was caused by test_change_password_rotates_pwdv incrementing password_version twice, which invalidated the module-scoped jwt_token fixture used by later tests. Fixed by having the integration test acquire a fresh JWT via /api/auth/login before running its flow."
+}

@@ -1,29 +1,16 @@
-# QwickAds Power Player – PRD
+# QwickAds Power Player + Super Admin — PRD
 
 ## Product
-Android digital signage **player** for Lenovo Tab M10 tablets in in-cab advertising. Distraction-free, kiosk-oriented, offline-first. Runs 24/7 in landscape. Ships as an Expo Router (React Native) app with a shared FastAPI + MongoDB backend that is also consumed by a separate QwickAds Super Admin web app.
+A production digital-signage platform that scales to ~200 cab screens and consists of two applications sharing one FastAPI + MongoDB backend:
 
-## Non-goals
-No consumer features, no dashboards inside the player, no advertisement targeting logic on device, no admin console inside the player. The tablet only follows the playlist assigned by the backend.
+1. **QwickAds Power Player** — Android/Expo app on Lenovo M10 tablets, permanently mounted in cabs. Distraction-free, offline-first, kiosk-oriented.
+2. **QwickAds Super Admin** — web dashboard (`/admin/*`) for managing areas, cabs, screens, media, campaigns, playlists, analytics and system settings.
 
-## Key user flows
-1. **First launch** → Registration screen. Operator enters a `REG-XXXXXX` code from the Super Admin panel → `POST /api/screens/register` → tablet stores `screen_id` + `screen_token` in Keystore and switches to Player mode.
-2. **Playback** → Fullscreen distraction-free loop. Ads (image/video) play in playlist order and loop indefinitely. All media is downloaded once and played from local storage.
-3. **Sync** → Every 5 min and on every heartbeat response the player checks `playlist_version`. If new: download all media first, then swap the playlist. Never break the currently-working loop.
-4. **Reporting** → After each ad, a `PlaybackEvent` is queued locally and batch-uploaded via `POST /api/playback/batch` when connectivity returns.
-5. **Heartbeat** → Every 60 s the player reports `current_ad_id`, storage_used, app version. Backend returns `playlist_version` so the player can proactively resync.
-6. **Commands** → Every 30 s the player fetches pending commands (`SYNC_PLAYLIST`, `CLEAR_CACHE`, etc.), executes and acks them.
-7. **Maintenance** → 5 taps in top-left corner → PIN gate (default `1234`) → dashboard with Sync Now / Reconnect / Clear Cache / Unregister Screen / Return to Player.
-8. **Fallback** → When there is no cached playlist yet, a branded "Waiting for advertising content…" screen is displayed instead of an error.
+The tablet is authenticated by its own `screen_token`. The web dashboard authenticates via JWT (bcrypt-hashed passwords). Machine-to-machine access via `X-Admin-Token` is preserved for backwards compat.
 
 ## Backend surface
-Admin (X-Admin-Token):
-- `POST /api/admin/screens/create-code`
-- `GET  /api/admin/screens`
-- `POST /api/admin/screens/{screen_id}/playlist`
-- `POST /api/admin/screens/{screen_id}/commands`
 
-Screen (X-Screen-Token):
+Player (X-Screen-Token):
 - `POST /api/screens/register`
 - `GET  /api/screens/{screen_id}/playlist`
 - `POST /api/screens/heartbeat`
@@ -31,13 +18,47 @@ Screen (X-Screen-Token):
 - `GET  /api/screens/{screen_id}/commands`
 - `POST /api/screens/{screen_id}/commands/{command_id}/ack`
 
+Auth:
+- `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/change-password`
+
+Admin (Bearer JWT or X-Admin-Token):
+- `/api/areas`  CRUD
+- `/api/cabs`  CRUD (soft-delete)
+- `/api/screens` list; `/api/screens/{id}`; `/api/screens/{id}/unregister`; `/api/screens/{id}/commands`
+- `/api/screens/registration-codes` create; `/list`; DELETE (revoke)
+- `/api/media`  CRUD (metadata only; Cloudinary can be enabled later without contract change)
+- `/api/campaigns`  CRUD (soft-delete)
+- `/api/playlists/{screen_id}` GET/PUT (publish → bumps `playlist_version`)
+- `/api/analytics/overview,campaigns,screens` (range: today | yesterday | 7d | 30d)
+- `/api/settings` GET/PUT
+- `/api/audit`
+
 Public: `GET /api/health`
 
-## Offline-first guarantees
-- Cached playlist loaded before any network call at cold start.
-- Media served from `documentDirectory/qwickads_media/` on every loop.
-- Playback events persist through offline periods and are batch-uploaded on reconnect.
-- **Safe playlist switching**: a new playlist replaces the current one only after all its media has been prefetched successfully.
+## Key business rules
 
-## Kiosk configuration (documented, not enforced from a normal app)
-Landscape lock, keep-awake, immersive fullscreen, and boot receiver are wired up. True lock-task requires the APK to be set as **device owner** (`adb shell dpm set-device-owner`).
+- **Screen identity is permanent.** Once a tablet registers, it stays registered through reboots, offline periods, and app restarts. Only an explicit **Unregister Screen** action from the Super Admin rotates the token and forces re-registration.
+- **Safe playlist switching.** The Power Player only switches to a new playlist after ALL its media has been downloaded locally. A failed download never breaks the running loop.
+- **Offline-first.** Cached playlist is loaded at cold start before any network I/O. Playback events queue on disk and are batch-uploaded on reconnect.
+- **Impression definition.** An impression is a playback event with `completion_percentage >= 80`. Documented in code + dashboard.
+- **Cross-screen isolation.** A screen token cannot read another screen's data.
+- **Registration codes** are single-use, have a configurable expiry (default 24 h) and can be revoked.
+- **Soft delete** for cabs and campaigns so historical playback analytics stay meaningful.
+
+## Frontend
+
+- Player screens: `/register`, `/player`, `/maintenance` (landscape, kiosk-oriented, native only).
+- Super Admin: `/admin/login`, `/admin`, `/admin/screens|cabs|areas|media|campaigns|playlists|analytics|audit|settings` — web-only via Expo Router.
+- Shared design tokens in `src/theme.ts`.
+- Admin session context in `src/admin/session.tsx`; API helper `adminRequest` attaches Bearer JWT.
+
+## Tests
+
+- Backend: **36 pytest tests** (16 player + 20 admin) covering auth, RBAC, CRUD, registration code lifecycle, playlist publishing, media reference protection, analytics, settings, audit trail, and the full integration flow (area → cab → code → register → publish → heartbeat → command → ack).
+- Frontend: Playwright smoke on preview validates login, all sidebar nav, resource CRUDs, code generation, analytics range picker and logout.
+
+## Deployment notes
+
+- All secrets via `.env`: `MONGO_URL`, `DB_NAME`, `JWT_SECRET`, `ADMIN_TOKEN`, `SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD`.
+- No secrets are ever exposed to the frontend. `EXPO_PUBLIC_BACKEND_URL` is the only public value.
+- Kiosk / auto-boot: shipped-as-native. Requires the APK to be set as **device owner** (`adb shell dpm set-device-owner`) to enter lock-task mode. Documented in README.
