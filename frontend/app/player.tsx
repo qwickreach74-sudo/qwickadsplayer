@@ -367,27 +367,71 @@ export default function PlayerScreen() {
 // cleanly, releasing native resources.
 // -----------------------------------------------------------------------------
 function VideoAd({ ad, onEnd }: { ad: PlayableAd; onEnd: () => void }) {
-  const player = useVideoPlayer(ad.local_uri, (p) => {
+  const player = useVideoPlayer(null, (p) => {
     p.loop = false;
     p.muted = true;
-    p.play();
   });
 
   useEffect(() => {
+    let cancelled = false;
+
+    const startVideo = async () => {
+      try {
+        if (!ad.local_uri) {
+          onEnd();
+          return;
+        }
+
+        // Set the video source first.
+        player.replace({ uri: ad.local_uri });
+
+        // Give the underlying video element time to load the source.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        if (cancelled) return;
+
+        player.muted = true;
+        player.play();
+      } catch (error) {
+        console.error("QwickAds video playback error:", error);
+        if (!cancelled) onEnd();
+      }
+    };
+
+    startVideo();
+
+    return () => {
+      cancelled = true;
+      try {
+        player.pause();
+      } catch {}
+    };
+  }, [player, ad.local_uri, onEnd]);
+
+  useEffect(() => {
     const sub = player.addListener("playToEnd", () => onEnd());
+
     const errSub = player.addListener("statusChange", (event: any) => {
-      if (event?.status === "error") onEnd();
+      if (event?.status === "error") {
+        console.error("QwickAds video status error:", event);
+        onEnd();
+      }
     });
+
     return () => {
       sub.remove();
       errSub.remove();
     };
   }, [player, onEnd]);
 
-  // Safety timeout for videos that never emit playToEnd (corrupt/streaming).
+  // Safety timeout for videos that never emit playToEnd.
   useEffect(() => {
     const durationMs = Math.max(5, ad.duration || 30) * 1000 + 5_000;
-    const t = setTimeout(onEnd, durationMs);
+
+    const t = setTimeout(() => {
+      onEnd();
+    }, durationMs);
+
     return () => clearTimeout(t);
   }, [ad.advertisement_id, ad.duration, onEnd]);
 
@@ -403,7 +447,6 @@ function VideoAd({ ad, onEnd }: { ad: PlayableAd; onEnd: () => void }) {
     />
   );
 }
-
 const styles = StyleSheet.create({
   blackScreen: {
     flex: 1,
