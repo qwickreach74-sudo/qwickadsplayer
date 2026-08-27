@@ -2,12 +2,14 @@
   "build": {
     "preview": {
       "android": {
+        "image": "latest",
         "buildType": "apk"
-      }
-    },
-    "production": {
-      "android": {
-        "buildType": "apk"
+      },
+      "production": {
+        "android": {
+          "image": "latest",
+          "buildType": "apk"
+        }
       }
     }
   }
