@@ -1,0 +1,140 @@
+{
+  "app_name": "QwickAds Power Player",
+  "personality": "1 iOS-Native Clean (Adapted for Android Landscape Tablet Kiosk)",
+  "personality_one_liner": "A premium, distraction-free, and highly reliable digital signage player built for stability and clean aesthetics.",
+  "color": {
+    "surface": "#F2F2F7",
+    "onSurface": "#1C1C1E",
+    "surfaceSecondary": "#FFFFFF",
+    "onSurfaceSecondary": "#1C1C1E",
+    "surfaceTertiary": "#F9FAFB",
+    "onSurfaceTertiary": "#4B5563",
+    "surfaceInverse": "#000000",
+    "onSurfaceInverse": "#FFFFFF",
+    "brand": "#6B46C1",
+    "brandPrimary": "#6B46C1",
+    "onBrandPrimary": "#FFFFFF",
+    "brandSecondary": "#F3E8FF",
+    "onBrandSecondary": "#6B46C1",
+    "brandTertiary": "#E9D8FD",
+    "onBrandTertiary": "#44337A",
+    "success": "#34C759",
+    "onSuccess": "#FFFFFF",
+    "warning": "#FF9500",
+    "onWarning": "#FFFFFF",
+    "error": "#FF3B30",
+    "onError": "#FFFFFF",
+    "info": "#007AFF",
+    "onInfo": "#FFFFFF",
+    "border": "#E5E5EA",
+    "borderStrong": "#C7C7CC",
+    "divider": "#E5E5EA"
+  },
+  "typography": {
+    "displayFontFamily": "Plus Jakarta Sans",
+    "textFontFamily": "Plus Jakarta Sans",
+    "scale": {
+      "sm": 12,
+      "base": 14,
+      "lg": 16,
+      "xl": 20,
+      "2xl": 24,
+      "3xl": 32,
+      "4xl": 48
+    }
+  },
+  "spacing": {
+    "rule": "Generous spacing optimized for a landscape tablet display. Use padding to keep content centered and prevent cards from stretching too wide.",
+    "xs": 4,
+    "sm": 8,
+    "md": 12,
+    "lg": 16,
+    "xl": 24,
+    "2xl": 32,
+    "3xl": 48
+  },
+  "radius_tokens": {
+    "sm": 6,
+    "md": 12,
+    "lg": 20,
+    "pill": 999
+  },
+  "shadow_tier": 1,
+  "navigation": "stack_only",
+  "icon_set": "Ionicons",
+  "glassmorphism": {
+    "enabled": false,
+    "do's": [],
+    "dont's": ["Do not use glassmorphism. This is a low-overhead signage player app that needs maximum performance and a flat, clean card style."]
+  },
+  "platform_libraries": {
+    "glass": {
+      "ios": "expo-glass-effect",
+      "android": "expo-blur",
+      "low_end_android_fallback": "solid surfaceSecondary"
+    },
+    "image": "expo-image",
+    "blur": "expo-blur",
+    "bottom_sheet": "@gorhom/bottom-sheet",
+    "animation": "react-native-reanimated",
+    "gesture": "react-native-gesture-handler"
+  },
+  "screens": [
+    {
+      "name": "Registration",
+      "purpose": "First-launch screen to pair the physical tablet with a QwickAds cloud account using a registration code.",
+      "states": {
+        "loading": "Disable inputs and show spinner inside the primary button.",
+        "empty": "N/A",
+        "error": "Inline error text below the input field in error color."
+      },
+      "layout": "Centered layout on landscape screen. Wrap the content in a clean, white `surfaceSecondary` card (max-width ~500px, large radius `lg`, shadow tier 1) sitting on a `surface` background. Show a premium 'QwickAds Power' text/logo at the top, followed by instructions, a large text input for the Registration Code, and a full-width 'Activate Screen' primary CTA button."
+    },
+    {
+      "name": "Player",
+      "purpose": "Fullscreen, distraction-free advertisement playback.",
+      "states": {
+        "loading": "Handled by Fallback Waiting Screen.",
+        "empty": "Handled by Fallback Waiting Screen.",
+        "error": "Do not show errors here. Continue looping cached content or fallback screen."
+      },
+      "layout": "Pure `surfaceInverse` (#000000) background. Completely hide system status bar and home indicator if possible (use expo-navigation-bar / expo-status-bar). Content is just an edge-to-edge Image or Video. No overlays, no buttons, no margins."
+    },
+    {
+      "name": "Maintenance (PIN Gate & Dashboard)",
+      "purpose": "Hidden configuration and recovery screen accessed via 5 corner taps, requiring a PIN before allowing destructive actions.",
+      "states": {
+        "loading": "Spinner over action buttons when syncing.",
+        "empty": "N/A",
+        "error": "Error toast or inline red text if PIN is wrong or sync fails."
+      },
+      "layout": "PIN Gate: Centered modal over a dark overlay. Main Dashboard: 2-column landscape grid. Left column: Device details (Screen ID, Cab Number, Area, Version, Storage) presented as a list of clean, read-only rows. Right column: Action buttons (Sync Now, Clear Cache, Reconnect, Exit Player). Destructive actions must be clearly marked (e.g., outlined red or solid red). Use a header with 'Maintenance Mode' and a close button to return to Player."
+    },
+    {
+      "name": "Fallback Waiting",
+      "purpose": "Displayed when there is no cached ad content available to play.",
+      "states": {
+        "loading": "Continuous soft pulse animation on the logo.",
+        "empty": "N/A",
+        "error": "N/A"
+      },
+      "layout": "Centered content on `surfaceSecondary` or `surface`. Show a QwickAds branded graphic, a spinner or loading pulse, and 'Waiting for advertising content...' text. Simple, elegant, and reassuring to the passenger."
+    }
+  ],
+  "images": {
+    "ad_placeholder_1": {
+      "url": "https://images.unsplash.com/photo-1760180139823-527522243bae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBkaWdpdGFsJTIwYmlsbGJvYXJkJTIwYWR2ZXJ0aXNlbWVudCUyMGxheW91dHxlbnwwfHx8fDE3ODc2NTIzODB8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Modern digital billboard advertisement"
+    }
+  },
+  "instructions_to_main_agent": [
+    "This app is an ALWAYS-ON KIOSK. Prioritize reliability. There is no traditional navigation header (hide the stack header).",
+    "Lock the orientation to LANDSCAPE in app.json or via expo-screen-orientation.",
+    "The Player screen MUST be completely distraction-free. No safe area insets padding the ad content; it should fill the screen. Background must be black.",
+    "For the hidden maintenance screen trigger, implement a transparent Pressable in one corner (e.g., top-left) on the Player screen that counts to 5 taps within a short time window.",
+    "Design the Registration card to look spacious and premium, avoiding stretching across the entire width of the landscape tablet. Restrict its max-width (e.g., 500px).",
+    "Do not use glassmorphism or expensive blurs. This app needs high performance for video/image cycling.",
+    "For the QwickAds branding, use the `brandPrimary` purple (#6B46C1) alongside crisp typography. A text-based 'QwickAds Power' wordmark with heavy font weight (500 per our rules) is sufficient if a logo image is unavailable.",
+    "Ensure 'Clear Cache' and 'Exit Player' buttons in the Maintenance screen require the PIN input or at least have a distinct, cautious visual styling (like an error-colored outline)."
+  ]
+}
