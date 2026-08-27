@@ -6,6 +6,10 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 
 const STORAGE_KEY = "qwickads.admin_session";
 
+// Registered by AdminSessionProvider so that any 401 from `adminRequest`
+// can force-clear the stale session even if the caller doesn't handle it.
+let _onUnauthorized: (() => void) | null = null;
+
 export type AdminUser = {
   id: string;
   email: string;
@@ -74,6 +78,18 @@ export function AdminSessionProvider({ children }: { children: React.ReactNode }
     writeStorage(null);
   }, []);
 
+  // Expose logout for the module-scope `adminRequest` helper so a 401
+  // anywhere in the app immediately kicks the user back to /admin/login.
+  useEffect(() => {
+    _onUnauthorized = () => {
+      setSession(null);
+      writeStorage(null);
+    };
+    return () => {
+      _onUnauthorized = null;
+    };
+  }, []);
+
   const changePassword = useCallback(
     async (current: string, next: string) => {
       if (!session) throw new Error("Not authenticated");
@@ -130,6 +146,10 @@ export async function adminRequest<T = any>(
   if (!res.ok) {
     const err: any = new Error(body.detail || `HTTP ${res.status}`);
     err.status = res.status;
+    // Force logout on any 401 so a stale/expired JWT can't wedge the app.
+    if (res.status === 401 && _onUnauthorized) {
+      _onUnauthorized();
+    }
     throw err;
   }
   return body as T;

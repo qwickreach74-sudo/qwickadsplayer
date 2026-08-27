@@ -1,0 +1,31 @@
+{
+  "summary": "Iteration 4 (admin panel 'Session expired' stuck-token fix) verified end-to-end. Backend: 36/36 pytest tests pass (backend/tests/test_qwickads.py + test_admin.py) — no API contract changes needed, existing test_change_password_rotates_pwdv already covers the 401 rotation. Frontend (desktop 1440x900, web preview at EXPO_PUBLIC_BACKEND_URL): (1) Login with admin@qwickads.com/ChangeMe@2026 -> /admin renders testID admin-page-title='Dashboard' and testID kpi-screens visible. (2) CORE FIX verified: injected bogus JWT into localStorage['qwickads.admin_session'] and reloaded /admin -> app auto-cleared localStorage AND redirected to /admin/login (testID admin-login visible, localStorage key returned null, backend correctly returned 401 as seen in console). (3) Re-login after auto-clear lands back on /admin dashboard with title='Dashboard'. (4) Change-password (Settings -> pwd-current/pwd-new/pwd-confirm/pwd-submit) with ChangeMe@2026 -> Temporary@2026 signs the user out and returns to /admin/login; re-logged in with new password; then reset back to ChangeMe@2026 and re-logged in successfully (credentials preserved for downstream). (5) All 10 sidebar nav items visible & clickable — titles verified: Dashboard, Screens, Cabs, Areas, Media Library, Campaigns, Playlists, Analytics, Audit Log, Settings. No React Native red screens. One pre-existing cosmetic warning: 'shadow*' style props deprecated — same as iteration_3, not related to this fix.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "styles (register.tsx / player.tsx)", "issue": "Pre-existing RN Web deprecation warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\"'. Cosmetic only — carried over from iteration_3, unrelated to this iteration's session-expiry fix."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_qwickads.py",
+    "/app/backend/tests/test_admin.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "session.tsx: module-scope _onUnauthorized callback registered inside AdminSessionProvider useEffect with cleanup — correct pattern; avoids stale references and safely handles unmount.",
+    "adminRequest 401 branch calls _onUnauthorized() BEFORE throwing, so downstream toast handlers still see the error but the Guard useEffect in _layout.tsx has already been triggered to redirect — good ordering.",
+    "changePassword handler still calls setSession(null)+writeStorage(null) directly (does not rely on the module callback), which is correct because the password_version rotation invalidates the just-issued token intentionally.",
+    "EXPO_PUBLIC_BACKEND_URL used correctly (no hardcoded URL); API base sanitised with trailing-slash strip."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (36/36)", "frontend": "100% of review-checklist flows verified"},
+  "seed_data_creation": "No new seed data created. Admin credentials left as admin@qwickads.com / ChangeMe@2026 as required.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Preview URL is EXPO_PUBLIC_BACKEND_URL=https://cab-display-ads.preview.emergentagent.com (the URL 559fe904... referenced in the review request is stale — use the one in /app/frontend/.env). Admin login testIDs are admin-login / login-email / login-password / login-submit (NOT admin-email/admin-password/admin-login-submit). To simulate an expired token: localStorage.setItem('qwickads.admin_session', JSON.stringify({access_token:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.invalid.invalid', expires_in:1, user:{id:'x',email:'admin@qwickads.com',role:'super_admin'}})) then page.reload(). Backend returns 401 detail 'Invalid or expired token' for malformed JWTs and 'Session expired' when pwdv mismatch. The fix in session.tsx handles BOTH via the shared _onUnauthorized module callback registered in AdminSessionProvider's useEffect.",
+  "rca_of_issue": "User reported admin panel showing 'session expired' toasts repeatedly without redirecting. RCA: backend/auth.py correctly returns 401 detail 'Session expired' when JWT pwdv < user.password_version (after password change) or 'Invalid or expired token' for expired JWTs — but the frontend adminRequest helper was throwing without clearing the stored session, so the Guard useEffect in admin/_layout.tsx never saw session change to null and never redirected. Fix (session.tsx): (1) added module-scope `_onUnauthorized` callback, (2) AdminSessionProvider registers a callback via useEffect that clears both React state and localStorage, (3) adminRequest calls _onUnauthorized() on any 401. Verified: with bogus token, /admin reload triggers 401 -> localStorage cleared -> Guard redirects to /admin/login. Reproduction: inject bogus JWT into localStorage and reload /admin. Mitigation confirmed. No further action required."
+}
