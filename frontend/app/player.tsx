@@ -313,8 +313,25 @@ export default function PlayerScreen() {
             <Text style={styles.brandLetter}>Q</Text>
           </View>
           <Text style={styles.fallbackTitle}>QwickAds Power</Text>
-          <ActivityIndicator color={colors.brand} style={{ marginVertical: spacing.lg }} />
+
+          {identity ? (
+            <View style={styles.idBadge} testID="fallback-screen-id">
+              <Text style={styles.idBadgeLabel}>SCREEN ID</Text>
+              <Text style={styles.idBadgeValue}>{identity.screen_id}</Text>
+              {identity.cab_number ? (
+                <Text style={styles.idBadgeSub}>
+                  {identity.cab_number}
+                  {identity.area ? ` · ${identity.area}` : ""}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          <ActivityIndicator color={colors.brand} style={{ marginVertical: spacing.md }} />
           <Text style={styles.fallbackText}>Waiting for advertising content…</Text>
+          <Text style={styles.fallbackHint}>
+            Publish a playlist to this screen from the Super Admin panel.
+          </Text>
           {!online ? (
             <Text style={styles.fallbackDim}>Offline · will retry automatically</Text>
           ) : null}
@@ -442,10 +459,46 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.onSurface,
   },
+  idBadge: {
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.brandTertiary,
+    backgroundColor: colors.brandSecondary,
+    alignItems: "center",
+    minWidth: 260,
+  },
+  idBadgeLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.brand,
+    letterSpacing: 1,
+  },
+  idBadgeValue: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: colors.brand,
+    letterSpacing: 2,
+    marginTop: 4,
+  },
+  idBadgeSub: {
+    fontSize: 12,
+    color: colors.onSurfaceTertiary,
+    marginTop: 4,
+  },
   fallbackText: {
     fontSize: 14,
     color: colors.onSurfaceTertiary,
     textAlign: "center",
+  },
+  fallbackHint: {
+    fontSize: 12,
+    color: colors.onSurfaceTertiary,
+    textAlign: "center",
+    marginTop: 6,
+    opacity: 0.8,
   },
   fallbackDim: {
     marginTop: spacing.sm,

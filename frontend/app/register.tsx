@@ -22,6 +22,11 @@ export default function RegisterScreen() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState<{
+    screen_id: string;
+    cab_number?: string | null;
+    area?: string | null;
+  } | null>(null);
 
   const handleActivate = useCallback(async () => {
     setError(null);
@@ -43,7 +48,11 @@ export default function RegisterScreen() {
         cab_number: res.cab_number ?? null,
         area: res.area ?? null,
       });
-      router.replace("/player");
+      setSuccess({
+        screen_id: res.screen_id,
+        cab_number: res.cab_number,
+        area: res.area,
+      });
     } catch (err: any) {
       const msg = String(err?.message || "Registration failed").replace(
         /^Error:\s*/,
@@ -53,7 +62,11 @@ export default function RegisterScreen() {
     } finally {
       setLoading(false);
     }
-  }, [code, router]);
+  }, [code]);
+
+  const enterPlayer = useCallback(() => {
+    router.replace("/player");
+  }, [router]);
 
   return (
     <KeyboardAvoidingView
@@ -72,52 +85,84 @@ export default function RegisterScreen() {
           </View>
         </View>
 
-        <Text style={styles.heading}>Connect this screen</Text>
-        <Text style={styles.subheading}>
-          Enter the registration code from your QwickAds account to activate
-          this display.
-        </Text>
+        {success ? (
+          <View testID="registration-success">
+            <View style={styles.successBadge}>
+              <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+              <Text style={styles.successTitle}>Screen activated</Text>
+            </View>
+            <Text style={styles.subheading}>
+              Note your Screen ID. Publish a playlist to this exact screen from the
+              QwickAds Super Admin panel.
+            </Text>
+            <View style={styles.idBox} testID="assigned-screen-id">
+              <Text style={styles.idLabel}>SCREEN ID</Text>
+              <Text style={styles.idValue}>{success.screen_id}</Text>
+              {success.cab_number ? (
+                <Text style={styles.idSub}>
+                  {success.cab_number}
+                  {success.area ? ` · ${success.area}` : ""}
+                </Text>
+              ) : null}
+            </View>
+            <Pressable
+              testID="continue-to-player-button"
+              onPress={enterPlayer}
+              style={({ pressed }) => [styles.primaryBtn, pressed && styles.primaryBtnPressed]}
+            >
+              <Text style={styles.primaryBtnText}>Continue to Player</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.heading}>Connect this screen</Text>
+            <Text style={styles.subheading}>
+              Enter the registration code from your QwickAds account to activate
+              this display.
+            </Text>
 
-        <Text style={styles.label}>Registration Code</Text>
-        <TextInput
-          testID="registration-code-input"
-          style={[styles.input, error ? styles.inputError : null]}
-          value={code}
-          onChangeText={(t) => {
-            setCode(t);
-            if (error) setError(null);
-          }}
-          placeholder="REG-XXXXXX"
-          placeholderTextColor={colors.onSurfaceTertiary}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          editable={!loading}
-        />
-        {error ? (
-          <Text style={styles.errorText} testID="register-error">
-            {error}
-          </Text>
-        ) : null}
+            <Text style={styles.label}>Registration Code</Text>
+            <TextInput
+              testID="registration-code-input"
+              style={[styles.input, error ? styles.inputError : null]}
+              value={code}
+              onChangeText={(t) => {
+                setCode(t);
+                if (error) setError(null);
+              }}
+              placeholder="REG-XXXXXX"
+              placeholderTextColor={colors.onSurfaceTertiary}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              editable={!loading}
+            />
+            {error ? (
+              <Text style={styles.errorText} testID="register-error">
+                {error}
+              </Text>
+            ) : null}
 
-        <Pressable
-          testID="activate-screen-button"
-          onPress={handleActivate}
-          disabled={loading}
-          style={({ pressed }) => [
-            styles.primaryBtn,
-            (pressed || loading) && styles.primaryBtnPressed,
-          ]}
-        >
-          {loading ? (
-            <ActivityIndicator color={colors.onSurfaceInverse} />
-          ) : (
-            <Text style={styles.primaryBtnText}>Activate Screen</Text>
-          )}
-        </Pressable>
+            <Pressable
+              testID="activate-screen-button"
+              onPress={handleActivate}
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.primaryBtn,
+                (pressed || loading) && styles.primaryBtnPressed,
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors.onSurfaceInverse} />
+              ) : (
+                <Text style={styles.primaryBtnText}>Activate Screen</Text>
+              )}
+            </Pressable>
 
-        <Text style={styles.footerHint}>
-          Codes are generated by your QwickAds Super Admin panel.
-        </Text>
+            <Text style={styles.footerHint}>
+              Codes are generated by your QwickAds Super Admin panel.
+            </Text>
+          </>
+        )}
       </View>
     </KeyboardAvoidingView>
   );
@@ -227,5 +272,44 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.onSurfaceTertiary,
     textAlign: "center",
+  },
+  successBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  successTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.onSurface,
+  },
+  idBox: {
+    marginVertical: spacing.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.brandTertiary,
+    backgroundColor: colors.brandSecondary,
+    alignItems: "center",
+  },
+  idLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: colors.brand,
+    letterSpacing: 1,
+  },
+  idValue: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: colors.brand,
+    letterSpacing: 3,
+    marginTop: 6,
+  },
+  idSub: {
+    fontSize: 12,
+    color: colors.onSurfaceTertiary,
+    marginTop: 6,
   },
 });

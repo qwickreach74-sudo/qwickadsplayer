@@ -1,0 +1,36 @@
+{
+  "summary": "Iteration 3 (screen_id visibility fix) tested end-to-end. Backend: 36/36 pytest tests pass (test_qwickads.py + test_admin.py) covering the full flow (login -> reg code -> register -> media -> publish playlist -> heartbeat -> command). Frontend (mobile viewport 375x667, web preview): fresh registration with a REG-XXXXXX code correctly shows testID 'registration-success' with testID 'assigned-screen-id' containing the QA-SCR-NNNNNN value returned by the API (verified QA-SCR-000025 and QA-SCR-000026 in two runs). Tapping 'continue-to-player-button' navigates to /player where 'player-fallback' is rendered and now includes testID 'fallback-screen-id' showing the exact same QA-SCR-NNNNNN — this is the fix the user requested (operator can read the screen_id from the tablet fallback and publish to that screen). After publishing a playlist (PUT /api/playlists/{sid}) to the assigned screen, the player transitions from fallback to testID 'player-screen' and the ad image is rendered (verified via screenshot). The existing 5-tap corner -> PIN 1234 -> maintenance-dashboard flow still works (pin-gate + maintenance-pin-input + pin-submit-button + maintenance-dashboard + action-sync all present). No React Native red screens. Deprecated packages: none detected. One console warning noted: '\"shadow*\" style props are deprecated. Use \"boxShadow\"' — cosmetic only on web preview, does not affect functionality.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": [
+      {"component": "styles (register.tsx / player.tsx)", "issue": "React Native web logs deprecation warning: '\"shadow*\" style props are deprecated. Use \"boxShadow\"'. Cosmetic — appears on every render of card/fallback in web preview. Reference: /app/frontend/app/register.tsx:185-189 (shadowColor/shadowOffset/shadowOpacity/shadowRadius) and /app/frontend/app/player.tsx:437-441."}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_qwickads.py",
+    "/app/backend/tests/test_admin.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Low) Replace RN Web deprecated shadow* style props with the cross-platform `boxShadow` (or wrap with Platform.select) in register.tsx card and player.tsx fallbackCard to silence the deprecation warning on web preview."
+  ],
+  "critical_code_review_comments": [
+    "register.tsx: post-success view correctly renders testID='registration-success' with nested 'assigned-screen-id' box and 'continue-to-player-button' — matches review checklist exactly.",
+    "player.tsx fallback (lines 303-341) correctly renders testID='fallback-screen-id' only when identity is loaded (guarded by `identity ? ... : null`), so an unregistered device still redirects to /register instead of showing an empty ID card.",
+    "player.tsx syncPlaylist correctly keeps current content when the new playlist has failed downloads (safe playlist switching) — no behaviour regression from adding the fallback ID badge.",
+    "saveScreenIdentity persists cab_number and area alongside screen_id + screen_token, so the fallback screen-id badge can also show 'CAB · AREA' subtitle — good UX."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (36/36)", "frontend": "100% of review-checklist testIDs/flows verified"},
+  "seed_data_creation": "Two ephemeral registration codes minted via POST /api/admin/screens/create-code (X-Admin-Token) with UI_/UI-TEST/UI-M cab_number+area prefixes for the browser tests; two screens registered (QA-SCR-000025 and QA-SCR-000026). One media item MED-A51D1D79 created and one playlist v1 published to QA-SCR-000025. Best-effort cleanup not performed for these — they are harmless prefixed test artefacts that the operator can prune manually via the admin panel if desired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Preview URL comes from /app/frontend/.env EXPO_PUBLIC_BACKEND_URL=https://cab-display-ads.preview.emergentagent.com (the URL in the review request 559fe904... is a stale preview host — do not use it). SecureStore on web falls back to localStorage, so `page.evaluate(()=>localStorage.clear())` before navigating to /register is REQUIRED to force fresh registration (otherwise the app auto-redirects to /player using cached identity). Correct maintenance testIDs are: maintenance-corner, pin-gate, maintenance-pin-input, pin-submit-button, maintenance-dashboard, action-sync (NOT 'maintenance-pin-submit'). Backend uses two auth mechanisms: X-Admin-Token (machine) or Authorization: Bearer <JWT from /api/auth/login> — both accepted on /api/admin/* and /api/playlists/*. The publish endpoint accepts BOTH POST /api/admin/screens/{sid}/playlist (raw ads shape, tested in test_qwickads.py) and PUT /api/playlists/{sid} (media_id-referenced shape, tested in test_admin.py); the user-facing fix relies on the latter.",
+  "rca_of_issue": "Original user issue was fully addressed: the tablet was stuck on 'Waiting for advertising content…' because the operator had no way to know which screen_id the tablet was registered as, so playlists were published to the wrong screen. Fix verified: (1) register.tsx post-success view now shows a large 'QA-SCR-NNNNNN' badge (testID assigned-screen-id) that the operator can read and copy; (2) player.tsx fallback now shows the same badge (testID fallback-screen-id) prominently above the 'Waiting for advertising content…' text so the operator can identify the screen even after leaving the registration screen. Both testIDs verified in browser test (QA-SCR-000025). End-to-end reproduction: minted REG-HRVFYB -> registered -> assigned QA-SCR-000025 -> both screens show the ID -> published playlist via PUT /api/playlists/QA-SCR-000025 with MED-A51D1D79 -> player-fallback disappeared within one heartbeat window and player-screen rendered the image ad. No further changes required."
+}
